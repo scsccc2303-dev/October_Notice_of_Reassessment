@@ -1,92 +1,129 @@
 export default async function handler(req, res) {
-  try {
-    // Only allow GET and POST
-    if (!["GET", "POST"].includes(req.method)) {
-      return res.status(405).json({
-        success: false,
-        error: "Method not allowed"
-      });
-    }
+try {
+// Allow only GET and POST
+if (!["GET", "POST"].includes(req.method)) {
+return res.status(405).json({
+success: false,
+error: "Method not allowed"
+});
+}
 
-    // Get data from POST body or GET query parameters
-    let input = {};
+// Get data
+let input = {};
 
-    if (req.method === "POST") {
-      input = typeof req.body === "object" ? req.body : {};
-    } else {
-      input = req.query || {};
-    }
+if (req.method === "POST") {
+input = typeof req.body === "object" ? req.body : {};
+} else {
+input = req.query || {};
+}
 
-    const event = input.event || "LINK_CLICKED";
-    const device = input.device || "Unknown";
-    const page =
-      input.page ||
-      req.headers.referer ||
-      "Unknown";
+// Activity information
+const event = input.event || "PAGE_OPENED";
+const device = input.device || "Unknown";
+const page =
+input.page ||
+req.headers.referer ||
+"Unknown";
 
-    const time =
-      input.time ||
-      new Date().toISOString();
+const time =
+input.time ||
+new Date().toISOString();
 
-    // Vercel/proxy headers
-    const forwardedFor = req.headers["x-forwarded-for"];
-    const ip =
-      typeof forwardedFor === "string"
-        ? forwardedFor.split(",")[0].trim()
-        : "Unknown";
+// Get visitor IP
+const forwardedFor = req.headers["x-forwarded-for"];
 
-    const country =
-      req.headers["x-vercel-ip-country"] ||
-      req.headers["cf-ipcountry"] ||
-      "Unknown";
+const ip =
+typeof forwardedFor === "string"
+? forwardedFor.split(",")[0].trim()
+: "Unknown";
 
-    // Telegram credentials MUST come from Vercel Environment Variables
-    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+// Get country
+let country = "Unknown";
 
-    if (!BOT_TOKEN || !CHAT_ID) {
-      return res.status(500).json({
-        success: false,
-        error: "Telegram environment variables are not configured."
-      });
-    }
+if (ip !== "Unknown") {
+try {
+const geoResponse = await fetch(
+`https://ipapi.co/${encodeURIComponent(ip)}/country_name/`
+);
 
-   const message =
-"📄 <b>DOCUMENT ACTIVITY</b>\n\n" .
-"🔔 <b>Event:</b> {$eventTitle}\n" .
-"💻 <b>Device:</b> {$device}\n" .
-"🌍 <b>Country:</b> {$country}\n" .
-"🌐 <b>IP:</b> {$ip}\n" .
-"🕐 <b>Time:</b> {$time}\n" .
-"📁 <b>Page:</b> {$page}";
+if (geoResponse.ok) {
+const geoText = await geoResponse.text();
 
+if (geoText.trim()) {
+country = geoText.trim();
+}
+}
+} catch {
+country = "Unknown";
+}
+}
 
-    const telegramURL =
-      `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+// Event names
+const eventNames = {
+PAGE_OPENED: "PAGE OPENED",
+PASSWORD_COPIED: "PASSWORD COPIED",
+DOWNLOAD_CLICKED: "DOWNLOAD CLICKED"
+};
 
-    const telegramResponse = await fetch(telegramURL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: message,
-      })
-    });
+const eventTitle =
+eventNames[event] || event.toUpperCase();
 
-    const telegramData = await telegramResponse.json();
+// Telegram message
+const message =
+`📄 <b>DOCUMENT ACTIVITY</b>
 
-    return res.status(telegramResponse.ok ? 200 : 500).json({
-      success: telegramResponse.ok,
-      http_code: telegramResponse.status,
-      telegram_response: telegramData
-    });
+🔔 <b>Event:</b> ${eventTitle}
+💻 <b>Device:</b> ${device}
+🌍 <b>Country:</b> ${country}
+🌐 <b>IP:</b> ${ip}
+🕐 <b>Time:</b> ${time}
+📁 <b>Page:</b> ${page}`;
 
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
+// Telegram credentials from Vercel Environment Variables
+const botToken = process.env.TELEGRAM_BOT_TOKEN;
+const chatId = process.env.TELEGRAM_CHAT_ID;
+
+if (!botToken || !chatId) {
+return res.status(500).json({
+success: false,
+error: "Telegram configuration missing"
+});
+}
+
+// Send to Telegram
+const telegramResponse = await fetch(
+`https://api.telegram.org/bot${botToken}/sendMessage`,
+{
+method: "POST",
+headers: {
+"Content-Type":
+"application/json"
+},
+body: JSON.stringify({
+chat_id: chatId,
+text: message,
+parse_mode: "HTML"
+})
+}
+);
+
+if (!telegramResponse.ok) {
+return res.status(500).json({
+success: false,
+error: "Telegram request failed"
+});
+}
+
+return res.status(200).json({
+success: true,
+event: eventTitle,
+country: country
+});
+
+} catch (error) {
+return res.status(500).json({
+success: false,
+error: "Server error"
+});
+}
 }
