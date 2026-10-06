@@ -38,25 +38,32 @@ typeof forwardedFor === "string"
 : "Unknown";
 
 // Get country
-let country = "Unknown";
+const countryCode =
+req.headers["x-vercel-ip-country"] || "";
 
-if (ip !== "Unknown") {
-try {
-const geoResponse = await fetch(
-`https://ipapi.co/${encodeURIComponent(ip)}/country_name/`
-);
+const countryNames = {
+US: "United States",
+CA: "Canada",
+GB: "United Kingdom",
+NG: "Nigeria",
+AU: "Australia",
+DE: "Germany",
+FR: "France",
+IT: "Italy",
+ES: "Spain",
+NL: "Netherlands",
+IE: "Ireland",
+GH: "Ghana",
+ZA: "South Africa",
+KE: "Kenya",
+IN: "India",
+AE: "United Arab Emirates"
+};
 
-if (geoResponse.ok) {
-const geoText = await geoResponse.text();
-
-if (geoText.trim()) {
-country = geoText.trim();
-}
-}
-} catch {
-country = "Unknown";
-}
-}
+const country =
+countryNames[countryCode.toUpperCase()] ||
+countryCode.toUpperCase() ||
+"Unknown";
 
 // Event names
 const eventNames = {
