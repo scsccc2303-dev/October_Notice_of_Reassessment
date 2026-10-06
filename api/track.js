@@ -52,13 +52,14 @@ export default async function handler(req, res) {
     }
 
    const message =
-  "Document Activity\n\n" +
-  "Event: " + event + "\n" +
-  "Device: " + device + "\n" +
-  "Country: " + country + "\n" +
-  "IP: " + ip + "\n" +
-  "Time: " + time + "\n" +
-  "Page: " + page;
+"📄 <b>DOCUMENT ACTIVITY</b>\n\n" .
+"🔔 <b>Event:</b> {$eventTitle}\n" .
+"💻 <b>Device:</b> {$device}\n" .
+"🌍 <b>Country:</b> {$country}\n" .
+"🌐 <b>IP:</b> {$ip}\n" .
+"🕐 <b>Time:</b> {$time}\n" .
+"📁 <b>Page:</b> {$page}";
+
 
     const telegramURL =
       `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
